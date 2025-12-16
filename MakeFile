@@ -1,0 +1,9 @@
+CC = gcc
+CFLAGS = -Wall -Wextra -std=c99
+LIBS = -lraylib
+
+game:
+	$(CC) src/main.c -o game $(CFLAGS) $(LIBS)
+
+clean:
+	rm -f game
