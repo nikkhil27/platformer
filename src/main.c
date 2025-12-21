@@ -1,51 +1,58 @@
 #include <stdio.h>
 #include "raylib.h"
+#define SCREEN_WIDTH 800
+#define SCREEN_HEIGHT 450
+
+#define GRAVITY 0.6f
+#define JUMP_FORCE 12.0f
+#define GROUND_Y 380
 
 typedef struct Player{
-    float x;
-    float y;
-    float width;
-    float height;
-    float speed;
+    Vector2 position;
+    Vector2 size;
+    float velocityY;
+    bool isOnGround;
 }Player;
 
 
 int main(void){
-    const int screenWidth = 800;
-    const int screenHeight = 450;
-    InitWindow(screenWidth,screenHeight,"My Mario Platoformer");
+    InitWindow(SCREEN_WIDTH,SCREEN_HEIGHT,"My Mario Platoformer");
     SetTargetFPS(60);
     
-    Player player;
-    player.width = 50;
-    player.height = 20;
-    player.x = screenWidth/2 - player.width/2;
-    player.y = screenHeight - player.height - 10;
-    player.speed = 5;
+    Player player = {
+        .position = {100,GROUND_Y},
+        .size = {40,60},
+        .velocityY = 0,
+        .isOnGround = true
+    };
 
     while(!WindowShouldClose()){
 
-        if(IsKeyDown(KEY_LEFT)){
-            player.x -= player.speed;
+        if(IsKeyDown(KEY_SPACE) && player.isOnGround){
+            player.velocityY = -JUMP_FORCE;
+            player.isOnGround = false;
         }
-        if(IsKeyDown(KEY_RIGHT)){
-            player.x += player.speed;
-        }
-        if (player.x < 0)
-            player.x = 0;
 
-        if (player.x > screenWidth - player.width)
-            player.x = screenWidth - player.width;
+        player.velocityY += GRAVITY;
+        player.position.y += player.velocityY;
+
+        if(player.position.y >= GROUND_Y){
+            player.position.y = GROUND_Y;
+            player.velocityY = 0;
+            player.isOnGround = true;
+        }
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
         DrawRectangle(
-            (int)player.x,
-            (int)player.y,
-            (int)player.height,
-            (int)player.width,
+            player.position.x,
+            player.position.y,
+            player.size.x,
+            player.size.y,
             BLUE
         );
+        DrawRectangle(0, GROUND_Y + player.size.y, SCREEN_WIDTH, 5, DARKGRAY);
+        DrawText("Press SPACE to jump", 20, 20, 20, BLACK);
         EndDrawing();
     }
     CloseWindow();
