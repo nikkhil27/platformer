@@ -11,6 +11,7 @@ typedef struct Player{
     Vector2 position;
     Vector2 size;
     float velocityY;
+    float velocityX;
     bool isOnGround;
 }Player;
 
@@ -20,15 +21,16 @@ int main(void){
     SetTargetFPS(60);
     
     Player player = {
-        .position = {100,GROUND_Y},
+        .position = {100,GROUND_Y - 60},
         .size = {40,60},
         .velocityY = 0,
+        .velocityX = 4.0f,
         .isOnGround = true
     };
 
     while(!WindowShouldClose()){
 
-        if(IsKeyDown(KEY_SPACE) && player.isOnGround){
+        if((IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_UP)) && player.isOnGround){
             player.velocityY = -JUMP_FORCE;
             player.isOnGround = false;
         }
@@ -36,11 +38,22 @@ int main(void){
         player.velocityY += GRAVITY;
         player.position.y += player.velocityY;
 
-        if(player.position.y >= GROUND_Y){
-            player.position.y = GROUND_Y;
+        if(player.position.y + player.size.y >= GROUND_Y){
+            player.position.y = GROUND_Y - player.size.y;
             player.velocityY = 0;
             player.isOnGround = true;
         }
+
+        if(IsKeyDown(KEY_LEFT)){
+            player.position.x -= player.velocityX;
+        }
+        if(IsKeyDown(KEY_RIGHT)){
+            player.position.x += player.velocityX;
+        }
+
+        if(player.position.x < 0){player.position.x = 0;}
+
+        if(player.position.x + player.size.x > SCREEN_WIDTH){player.position.x = SCREEN_WIDTH - player.size.x;}
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
@@ -51,7 +64,7 @@ int main(void){
             player.size.y,
             BLUE
         );
-        DrawRectangle(0, GROUND_Y + player.size.y, SCREEN_WIDTH, 5, DARKGRAY);
+        DrawRectangle(0, GROUND_Y, SCREEN_WIDTH, 5, DARKGRAY);
         DrawText("Press SPACE to jump", 20, 20, 20, BLACK);
         EndDrawing();
     }
