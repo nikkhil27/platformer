@@ -5,8 +5,7 @@
 #include "raylib.h"    
 
 typedef struct Player {
-    Vector2 position;
-    Vector2 size;
+    Rectangle rect;
     float velocityY;
     float velocityX;
     bool isOnGround;

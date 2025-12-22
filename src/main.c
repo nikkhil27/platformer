@@ -6,29 +6,31 @@
 #define GRAVITY 1200.0f
 #define JUMP_FORCE 500.0f
 #define GROUND_Y 380
+#define MAX_PLATFORMS 10
+
 
 typedef struct Platform{
-    Vector2 position;
-    Vector2 size;
+    Rectangle rect;
 }Platform;
-
-Platform platform = {
-    .position = {0, SCREEN_HEIGHT - 80},
-    .size = {SCREEN_WIDTH, 90}
-};
-
 
 int main(void){
     InitWindow(SCREEN_WIDTH,SCREEN_HEIGHT,"My Mario Platformer");
     SetTargetFPS(60);
     
     Player player = {
-        .position = {100,GROUND_Y - 60},
-        .size = {40,60},
+        .rect = {100, 300, 40, 40},
         .velocityY = 0,
         .velocityX = 4.0f,
         .isOnGround = true
     };
+
+    Platform platforms[MAX_PLATFORMS];
+    int platformCount = 4;
+
+    platforms[0].rect = (Rectangle){0, 400, 800, 50};  
+    platforms[1].rect = (Rectangle){200, 320, 120, 20};
+    platforms[2].rect = (Rectangle){400, 260, 120, 20};
+    platforms[3].rect = (Rectangle){600, 200, 120, 20};
 
     while(!WindowShouldClose()){
 
@@ -40,51 +42,45 @@ int main(void){
         }
 
         player.velocityY += GRAVITY * dt;
-        player.position.y += player.velocityY * dt;
+        float prevY = player.rect.y;
+        player.rect.y += player.velocityY * dt;
         player.isOnGround = false;
-        // AABB collision check (player vs platform)
-        if (
-            player.position.x < platform.position.x + platform.size.x &&
-            player.position.x + player.size.x > platform.position.x &&
-            player.position.y < platform.position.y + platform.size.y &&
-            player.position.y + player.size.y > platform.position.y
-        ) {
-            // Falling down onto platform
-            if (player.velocityY > 0) {
-                player.position.y = platform.position.y - player.size.y;
-                player.velocityY = 0;
-                player.isOnGround = true;
-            }
-        }
 
         if(IsKeyDown(KEY_LEFT)){
-            player.position.x -= player.velocityX;
+            player.rect.x -= player.velocityX;
         }
         if(IsKeyDown(KEY_RIGHT)){
-            player.position.x += player.velocityX;
+            player.rect.x += player.velocityX;
         }
 
-        if(player.position.x < 0){player.position.x = 0;}
+        if(player.rect.x < 0){player.rect.x = 0;}
 
-        if(player.position.x + player.size.x > SCREEN_WIDTH){player.position.x = SCREEN_WIDTH - player.size.x;}
+        if(player.rect.x + player.rect.width > SCREEN_WIDTH){player.rect.x = SCREEN_WIDTH - player.rect.width;}
+
+        for(int i=0; i< platformCount;i++){
+            Platform p = platforms[i];
+            
+            if(CheckCollisionRecs(player.rect,p.rect)){
+                // Falling onto platform
+                if (prevY + player.rect.height <= p.rect.y)
+                {
+                    player.rect.y = p.rect.y - player.rect.height;
+                    player.velocityY = 0;
+                    player.isOnGround = true;
+                }
+            }
+        }
 
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
-        DrawRectangle(
-            platform.position.x,
-            platform.position.y,
-            platform.size.x,
-            platform.size.y,
-            DARKGRAY
-        );
-        DrawRectangle(
-            player.position.x,
-            player.position.y,
-            player.size.x,
-            player.size.y,
-            BLUE
-        );
+         DrawRectangleRec(player.rect, BLUE);
+        
+        for (int i = 0; i < platformCount; i++)
+        {
+            DrawRectangleRec(platforms[i].rect, DARKGRAY);
+        }
+
         DrawText("My Mario Platformer",20,20,20,BLACK);
         EndDrawing();
     }
