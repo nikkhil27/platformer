@@ -8,7 +8,7 @@
 #define GROUND_Y 380
 #define MAX_PLATFORMS 10
 #define LEVEL_WIDTH 2000
-
+#define FRAME_SPEED 0.1f
 
 typedef struct Platform{
     Rectangle rect;
@@ -24,8 +24,29 @@ int main(void){
         .rect = {100, 300, 40, 40},
         .velocityY = 0,
         .velocityX = 4.0f,
-        .isOnGround = true
+        .isOnGround = true,
+        .state = PLAYER_IDLE,
+        .facingRight = true,
+        .currentFrame = 0,
+        .frameTimer = 0.0f
     };
+
+    Texture2D playerRun = LoadTexture("../assets/Main Characters/Pink Man/Run (32x32).png");
+    Texture2D playerFall = LoadTexture("../assets/Main Characters/Pink Man/Fall (32x32).png");
+    Texture2D playerJump = LoadTexture("../assets/Main Characters/Pink Man/Jump (32x32).png");
+    Texture2D playerIdle = LoadTexture("../assets/Main Characters/Pink Man/Idle (32x32).png");
+
+    Texture2D background = LoadTexture("../assets/Background/Blue.png");
+    Texture2D terrainTile = LoadTexture("../assets/Terrain/Terrain (16x16).png");
+
+    int runFrames = 12;
+    int fallFrames = 1;
+    int JumpFrames = 5;
+    int idleFrames = 11;
+
+    int frameWidth = playerRun.width / runFrames;
+    int frameHeight = playerRun.height;
+
     Camera2D camera = {0};
     camera.target = (Vector2){ player.rect.x + player.rect.width/2, player.rect.y };
     camera.offset = (Vector2){ 400, 225 }; // half of screen (800x450)
@@ -60,6 +81,33 @@ int main(void){
 
         float dt = GetFrameTime();
 
+        player.frameTimer += dt;
+        if (player.frameTimer >= FRAME_SPEED) {
+            player.frameTimer = 0.0f;
+            player.currentFrame++;
+            
+            // Loop animation based on current state
+            int maxFrames = runFrames;  // default
+            switch (player.state) {
+                case PLAYER_RUN:
+                    maxFrames = runFrames;
+                    break;
+                case PLAYER_FALL:
+                    maxFrames = fallFrames;
+                    break;
+                case PLAYER_JUMP:
+                    maxFrames = JumpFrames;
+                    break;
+                case PLAYER_IDLE:
+                    maxFrames = idleFrames;
+                    break;
+            }
+            
+            if (player.currentFrame >= maxFrames) {
+                player.currentFrame = 0;  // Loop back to first frame
+            }
+}
+
         if((IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_UP)) && player.isOnGround){
             player.velocityY = -JUMP_FORCE;
             player.isOnGround = false;
@@ -75,6 +123,21 @@ int main(void){
         }
         if(IsKeyDown(KEY_RIGHT)){
             player.rect.x += player.velocityX;
+        }
+
+        // Update player state based on movement
+        if (!player.isOnGround) {
+            if (player.velocityY < 0) {
+                player.state = PLAYER_JUMP;
+            } else {
+                player.state = PLAYER_FALL;
+            }
+        } else if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_RIGHT)) {
+            player.state = PLAYER_RUN;
+            if (IsKeyDown(KEY_LEFT)) player.facingRight = false;
+            if (IsKeyDown(KEY_RIGHT)) player.facingRight = true;
+        } else {
+            player.state = PLAYER_IDLE;
         }
 
         if(player.rect.x < 0){player.rect.x = 0;}
@@ -98,16 +161,65 @@ int main(void){
         BeginDrawing();
         ClearBackground(RAYWHITE);
         BeginMode2D(camera);
-        DrawRectangleRec(player.rect, BLUE);
-        
-        for (int i = 0; i < platformCount; i++)
-        {
+        Texture2D currentTexture;
+        int frameCount;
+
+        switch (player.state) {
+            case PLAYER_RUN:
+                currentTexture = playerRun;
+                frameCount = runFrames;
+                break;
+            case PLAYER_FALL:
+                currentTexture = playerFall;
+                frameCount = fallFrames;
+                break;
+            case PLAYER_JUMP:
+                currentTexture = playerJump;
+                frameCount = JumpFrames;
+                break;
+            case PLAYER_IDLE:
+                currentTexture = playerIdle;
+                frameCount = idleFrames;
+                break;
+            default:
+                currentTexture = playerIdle;
+                frameCount = idleFrames;
+        }
+
+        // Calculate source rectangle (which frame to show)
+        int frameW = currentTexture.width / frameCount;
+        Rectangle sourceRec = {
+            player.currentFrame * frameW,  // X position of current frame
+            0,
+            frameW * (player.facingRight ? 1 : -1),  // Flip if facing left
+            currentTexture.height
+        };
+
+        // Draw the current frame
+        DrawTexturePro(
+            currentTexture,
+            sourceRec,
+            player.rect,
+            (Vector2){0, 0},
+            0.0f,
+            WHITE
+        );
+
+        // Draw platforms
+        for (int i = 0; i < platformCount; i++) {
             DrawRectangleRec(platforms[i].rect, DARKGRAY);
         }
+
         EndMode2D();
         DrawText("My Mario Platformer",20,20,20,BLACK);
         EndDrawing();
     }
+    UnloadTexture(playerRun);
+    UnloadTexture(playerFall);
+    UnloadTexture(playerJump);
+    UnloadTexture(playerIdle);
+    UnloadTexture(background);
+    UnloadTexture(terrainTile);
     CloseWindow();
     return 0;
 }
