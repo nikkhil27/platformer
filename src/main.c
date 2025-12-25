@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <math.h>
 #include "raylib.h"
 #define SCREEN_WIDTH 800
 #define SCREEN_HEIGHT 450
@@ -9,21 +10,85 @@
 #define MAX_PLATFORMS 10
 #define LEVEL_WIDTH 2000
 #define FRAME_SPEED 0.1f
+#define TILE_SIZE 16
+
+// Brown terrain tileset (row 1, col 1 in your image = row 0 in code)
+#define TILE_GRASS_LEFT   9   // First column of second row
+#define TILE_GRASS_MID    10  // Second column of second row
+#define TILE_GRASS_RIGHT  11  // Third column of second row
 
 typedef struct Platform{
     Rectangle rect;
 }Platform;
 
+void DrawTiles(Platform platform, Texture2D terrain, float scale){
+    int tilesize = TILE_SIZE;
+    int scaledTileSize = tilesize * scale;
+
+    int tilesX = (int)(platform.rect.width / scaledTileSize);
+    int tilesY = (int)(platform.rect.height / scaledTileSize);
+
+    for(int y = 0; y < tilesY; y++){
+        for(int x = 0; x < tilesX; x++){
+            Rectangle sourceRec;
+
+            // Top row - grass tiles
+            if(y == 0){
+                if(x == 0){
+                    // Top-left grass corner
+                    sourceRec = (Rectangle){tilesize * 0, tilesize * 1, tilesize, tilesize};
+                }
+                else if(x == tilesX - 1){
+                    // Top-right grass corner
+                    sourceRec = (Rectangle){tilesize * 2, tilesize * 1, tilesize, tilesize};
+                }
+                else{
+                    // Top middle grass
+                    sourceRec = (Rectangle){tilesize * 1, tilesize * 1, tilesize, tilesize};
+                }
+            }
+            // Middle rows - dirt
+            else if (y < tilesY - 1) {
+                if (x == 0) {
+                    sourceRec = (Rectangle){tilesize * 0, tilesize * 2, tilesize, tilesize};
+                } else if (x == tilesX - 1) {
+                    sourceRec = (Rectangle){tilesize * 2, tilesize * 2, tilesize, tilesize};
+                } else {
+                    sourceRec = (Rectangle){tilesize * 1, tilesize * 2, tilesize, tilesize};
+                }
+            }
+            // Bottom row
+            else {
+                if (x == 0) {
+                    sourceRec = (Rectangle){tilesize * 0, tilesize * 3, tilesize, tilesize};
+                } else if (x == tilesX - 1) {
+                    sourceRec = (Rectangle){tilesize * 2, tilesize * 3, tilesize, tilesize};
+                } else {
+                    sourceRec = (Rectangle){tilesize * 1, tilesize * 3, tilesize, tilesize};
+                }
+            }
+            
+            Rectangle destRec = {
+                platform.rect.x + x * scaledTileSize,
+                platform.rect.y + y * scaledTileSize,
+                scaledTileSize,
+                scaledTileSize
+            };
+            
+            DrawTexturePro(terrain, sourceRec, destRec, (Vector2){0, 0}, 0.0f, WHITE);
+        }
+    }
+}
 
 
 int main(void){
-    InitWindow(SCREEN_WIDTH,SCREEN_HEIGHT,"My Mario Platformer");
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "My Mario Platformer");
     SetTargetFPS(60);
 
     Player player = {
         .rect = {100, 300, 40, 40},
         .velocityY = 0,
-        .velocityX = 4.0f,
+        .velocityX = 300.0f,  // Changed to pixels per second
         .isOnGround = true,
         .state = PLAYER_IDLE,
         .facingRight = true,
@@ -37,36 +102,38 @@ int main(void){
     Texture2D playerIdle = LoadTexture("../assets/Main Characters/Pink Man/Idle (32x32).png");
 
     Texture2D background = LoadTexture("../assets/Background/Blue.png");
-    Texture2D terrainTile = LoadTexture("../assets/Terrain/Terrain (16x16).png");
-
+    Texture2D terrain = LoadTexture("../assets/Terrain/Terrain (16x16).png");
+    
     int runFrames = 12;
     int fallFrames = 1;
-    int JumpFrames = 5;
+    int JumpFrames = 1;
     int idleFrames = 11;
-
-    int frameWidth = playerRun.width / runFrames;
-    int frameHeight = playerRun.height;
 
     Camera2D camera = {0};
     camera.target = (Vector2){ player.rect.x + player.rect.width/2, player.rect.y };
-    camera.offset = (Vector2){ 400, 225 }; // half of screen (800x450)
+    camera.offset = (Vector2){ SCREEN_WIDTH/2, SCREEN_HEIGHT/2 };
     camera.rotation = 0.0f;
     camera.zoom = 1.0f;
+    
     Platform platforms[MAX_PLATFORMS];
     int platformCount = 7;
-    //Ground
+    
+    float tileScale = 2.5f;
+    int scaledTile = TILE_SIZE * tileScale;
 
-    platforms[0].rect = (Rectangle){0, 400, LEVEL_WIDTH, 50};  
+    // Ground platform - thicker and extends full level
+    platforms[0].rect = (Rectangle){0, 380, LEVEL_WIDTH, scaledTile * 3};
 
-    //FloatingPlatforms
+    // Floating Platforms - made wider for better gameplay
+    platforms[1].rect = (Rectangle){200, 320, scaledTile * 4, scaledTile * 2};
+    platforms[2].rect = (Rectangle){450, 260, scaledTile * 4, scaledTile * 2};
+    platforms[3].rect = (Rectangle){700, 200, scaledTile * 4, scaledTile * 2};
+    platforms[4].rect = (Rectangle){950, 280, scaledTile * 5, scaledTile * 2};
+    platforms[5].rect = (Rectangle){1200, 220, scaledTile * 4, scaledTile * 2};
+    platforms[6].rect = (Rectangle){1500, 180, scaledTile * 6, scaledTile * 2};
 
-    platforms[1].rect = (Rectangle){200, 320, 120, 20};
-    platforms[2].rect = (Rectangle){400, 260, 120, 20};
-    platforms[3].rect = (Rectangle){600, 200, 120, 20};
-    platforms[4].rect = (Rectangle){900, 320, 120, 20};
-    platforms[5].rect = (Rectangle){1100, 260, 120, 20};
-    platforms[6].rect = (Rectangle){1400, 200, 120, 20};
     while(!WindowShouldClose()){
+        float dt = GetFrameTime();
 
         // Camera follows player on X axis
         camera.target.x = player.rect.x + player.rect.width / 2;
@@ -78,16 +145,13 @@ int main(void){
         if (camera.target.x > LEVEL_WIDTH - camera.offset.x)
             camera.target.x = LEVEL_WIDTH - camera.offset.x;
 
-
-        float dt = GetFrameTime();
-
+        // Animation
         player.frameTimer += dt;
         if (player.frameTimer >= FRAME_SPEED) {
             player.frameTimer = 0.0f;
             player.currentFrame++;
             
-            // Loop animation based on current state
-            int maxFrames = runFrames;  // default
+            int maxFrames = runFrames;
             switch (player.state) {
                 case PLAYER_RUN:
                     maxFrames = runFrames;
@@ -104,28 +168,31 @@ int main(void){
             }
             
             if (player.currentFrame >= maxFrames) {
-                player.currentFrame = 0;  // Loop back to first frame
+                player.currentFrame = 0;
             }
-}
+        }
 
+        // Jump
         if((IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_UP)) && player.isOnGround){
             player.velocityY = -JUMP_FORCE;
             player.isOnGround = false;
         }
 
+        // Gravity
         player.velocityY += GRAVITY * dt;
         float prevY = player.rect.y;
         player.rect.y += player.velocityY * dt;
         player.isOnGround = false;
 
-        if(IsKeyDown(KEY_LEFT)){
-            player.rect.x -= player.velocityX;
+        // Horizontal movement
+        if (IsKeyDown(KEY_LEFT)) {
+            player.rect.x -= player.velocityX * dt;
         }
-        if(IsKeyDown(KEY_RIGHT)){
-            player.rect.x += player.velocityX;
+        if (IsKeyDown(KEY_RIGHT)) {
+            player.rect.x += player.velocityX * dt;
         }
 
-        // Update player state based on movement
+        // Update player state
         if (!player.isOnGround) {
             if (player.velocityY < 0) {
                 player.state = PLAYER_JUMP;
@@ -140,16 +207,17 @@ int main(void){
             player.state = PLAYER_IDLE;
         }
 
-        if(player.rect.x < 0){player.rect.x = 0;}
-        if(player.rect.x + player.rect.width > LEVEL_WIDTH){player.rect.x = LEVEL_WIDTH - player.rect.width;}
+        // Keep player in bounds
+        if(player.rect.x < 0) player.rect.x = 0;
+        if(player.rect.x + player.rect.width > LEVEL_WIDTH) 
+            player.rect.x = LEVEL_WIDTH - player.rect.width;
 
-        for(int i=0; i< platformCount;i++){
+        // Platform collision
+        for(int i = 0; i < platformCount; i++){
             Platform p = platforms[i];
             
-            if(CheckCollisionRecs(player.rect,p.rect)){
-                // Falling onto platform
-                if (prevY + player.rect.height <= p.rect.y)
-                {
+            if(CheckCollisionRecs(player.rect, p.rect)){
+                if (prevY + player.rect.height <= p.rect.y) {
                     player.rect.y = p.rect.y - player.rect.height;
                     player.velocityY = 0;
                     player.isOnGround = true;
@@ -157,10 +225,47 @@ int main(void){
             }
         }
 
+        // Fallback ground
+        if (player.rect.y > SCREEN_HEIGHT) {
+            player.rect.y = SCREEN_HEIGHT - player.rect.height;
+            player.velocityY = 0;
+            player.isOnGround = true;
+        }
 
+        // RENDERING
         BeginDrawing();
-        ClearBackground(RAYWHITE);
+        ClearBackground((Color){135, 206, 235, 255}); // Sky blue
         BeginMode2D(camera);
+
+        // Improved parallax background
+        float bgSpeed = 0.3f;  // Slower = more depth
+        float bgScale = 3.0f;
+        int bgWidth = background.width * bgScale;
+        int bgHeight = background.height * bgScale;
+        
+        // Calculate offset based on camera position
+        float parallaxOffset = camera.target.x * bgSpeed;
+        
+        // Calculate which tiles to draw
+        float startX = parallaxOffset - camera.offset.x;
+        int firstTile = (int)(startX / bgWidth) - 1;
+        int lastTile = firstTile + (int)(SCREEN_WIDTH / bgWidth) + 3;
+        
+        // Draw seamless background tiles
+        for (int i = firstTile; i <= lastTile; i++) {
+            Vector2 pos = {
+                i * bgWidth - fmod(parallaxOffset, bgWidth),
+                0
+            };
+            DrawTextureEx(background, pos, 0.0f, bgScale, WHITE);
+        }
+        
+        // Draw platforms with tiles
+        for (int i = 0; i < platformCount; i++) {
+            DrawTiles(platforms[i], terrain, tileScale);
+        }
+        
+        // Draw player
         Texture2D currentTexture;
         int frameCount;
 
@@ -178,24 +283,19 @@ int main(void){
                 frameCount = JumpFrames;
                 break;
             case PLAYER_IDLE:
-                currentTexture = playerIdle;
-                frameCount = idleFrames;
-                break;
             default:
                 currentTexture = playerIdle;
                 frameCount = idleFrames;
         }
 
-        // Calculate source rectangle (which frame to show)
         int frameW = currentTexture.width / frameCount;
         Rectangle sourceRec = {
-            player.currentFrame * frameW,  // X position of current frame
+            player.currentFrame * frameW,
             0,
-            frameW * (player.facingRight ? 1 : -1),  // Flip if facing left
+            frameW * (player.facingRight ? 1 : -1),
             currentTexture.height
         };
 
-        // Draw the current frame
         DrawTexturePro(
             currentTexture,
             sourceRec,
@@ -205,21 +305,16 @@ int main(void){
             WHITE
         );
 
-        // Draw platforms
-        for (int i = 0; i < platformCount; i++) {
-            DrawRectangleRec(platforms[i].rect, DARKGRAY);
-        }
-
-        EndMode2D();
-        DrawText("My Mario Platformer",20,20,20,BLACK);
+        EndMode2D();  // IMPORTANT: Close camera mode
         EndDrawing();
     }
+    
     UnloadTexture(playerRun);
     UnloadTexture(playerFall);
     UnloadTexture(playerJump);
     UnloadTexture(playerIdle);
     UnloadTexture(background);
-    UnloadTexture(terrainTile);
+    UnloadTexture(terrain);
     CloseWindow();
     return 0;
 }
