@@ -91,6 +91,7 @@ int main(void){
         .velocityX = 300.0f,  // Changed to pixels per second
         .isOnGround = true,
         .state = PLAYER_IDLE,
+        .prevState = PLAYER_IDLE,
         .facingRight = true,
         .currentFrame = 0,
         .frameTimer = 0.0f
@@ -145,33 +146,6 @@ int main(void){
         if (camera.target.x > LEVEL_WIDTH - camera.offset.x)
             camera.target.x = LEVEL_WIDTH - camera.offset.x;
 
-        // Animation
-        player.frameTimer += dt;
-        if (player.frameTimer >= FRAME_SPEED) {
-            player.frameTimer = 0.0f;
-            player.currentFrame++;
-            
-            int maxFrames = runFrames;
-            switch (player.state) {
-                case PLAYER_RUN:
-                    maxFrames = runFrames;
-                    break;
-                case PLAYER_FALL:
-                    maxFrames = fallFrames;
-                    break;
-                case PLAYER_JUMP:
-                    maxFrames = JumpFrames;
-                    break;
-                case PLAYER_IDLE:
-                    maxFrames = idleFrames;
-                    break;
-            }
-            
-            if (player.currentFrame >= maxFrames) {
-                player.currentFrame = 0;
-            }
-        }
-
         // Jump
         if((IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_UP)) && player.isOnGround){
             player.velocityY = -JUMP_FORCE;
@@ -193,6 +167,8 @@ int main(void){
         }
 
         // Update player state
+        player.prevState = player.state; // save previous state
+
         if (!player.isOnGround) {
             if (player.velocityY < 0) {
                 player.state = PLAYER_JUMP;
@@ -206,6 +182,44 @@ int main(void){
         } else {
             player.state = PLAYER_IDLE;
         }
+        // Reset animation on state change
+        if(player.state != player.prevState){
+            player.currentFrame = 0;
+            player.frameTimer = 0.0f;
+        }
+
+        int maxFrames = 1;
+
+        switch (player.state) {
+            case PLAYER_RUN:
+                maxFrames = runFrames;
+                break;
+            case PLAYER_FALL:
+                maxFrames = fallFrames;
+                break;
+            case PLAYER_JUMP:
+                maxFrames = JumpFrames;
+                break;
+            case PLAYER_IDLE:
+                maxFrames = idleFrames;
+                break;
+        }
+
+        // Animate only if more than 1 frame
+        if (maxFrames > 1) {
+            player.frameTimer += dt;
+
+            if (player.frameTimer >= FRAME_SPEED) {
+                player.frameTimer = 0.0f;
+                player.currentFrame++;
+
+                if (player.currentFrame >= maxFrames) {
+                    player.currentFrame = 0;
+                }
+            }
+        }
+
+
 
         // Keep player in bounds
         if(player.rect.x < 0) player.rect.x = 0;
